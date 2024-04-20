@@ -6,9 +6,21 @@ namespace UnitConverter
     {
         static void Main(string[] args)
         {
-            Measure SpecificWeight01 = new Measure(1000, "kg.cm^-3");
-            Console.WriteLine(SpecificWeight01.ToString());
+            Measure a = new Measure(100, "cm");
+            Measure V = a * a * a;
+            Measure p = new Measure(7800, "kg.m^-3");
+            Measure g = new Measure(9.80665, "m.s^-2");
+            Measure m = V * p;
+            Measure Q = m * g;
+            Measure A = a * a;
+            Measure press = Q / A;
 
+            Console.WriteLine("V: " + V.ToString());
+            Console.WriteLine("m: " + m.ToString());
+            Console.WriteLine("Q: " + Q.ToString());
+            Console.WriteLine("A: " + A.ToString());
+            Console.WriteLine("press: " + press.ToString());
+           
         }
     }
 }

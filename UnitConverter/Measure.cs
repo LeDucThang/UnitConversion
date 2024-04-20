@@ -34,8 +34,8 @@ namespace UnitConverter
             if (Negative.Count == 0)
                 return positive;
             if (Positive.Count == 0)
-                return $"1/{negative}";
-            return $"{positive}/{negative}";
+                return $"1/({negative})";
+            return $"{positive}/({negative})";
         }
 
         private static string UnitToString(KeyValuePair<Unit, long> unit)
@@ -80,7 +80,7 @@ namespace UnitConverter
             foreach (var InputUnit in InputUnits)
             {
                 Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == InputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
-                baseValue = baseValue * Math.Round(Math.Pow(InputUnit.Key.Factor, InputUnit.Value));
+                baseValue = baseValue * Math.Round(Math.Pow(InputUnit.Key.Factor, InputUnit.Value), 10);
                 BaseUnits.Add(baseUnit, InputUnit.Value);
             }
             BaseValue = baseValue;
