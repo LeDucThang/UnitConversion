@@ -54,17 +54,36 @@ namespace UnitConverter
 
         }
 
-        public Measure(double value, string unit)
+        public Measure(double value, string units)
         {
             InputValue = value;
             InputUnits = new Dictionary<Unit, long>();
-            Unit inputUnit = Unit.ListEnum.Where(x => x.Code == unit).FirstOrDefault();
-            InputUnits.Add(inputUnit, 1);
+            List<string> str_units = units.Split(".").ToList();
+            foreach (string str in str_units)
+            {
+                string[] s = str.Split("^");
+                if (s.Length > 0)
+                {
+                    Unit inputUnit = Unit.ListEnum.Where(x => x.Code == s[0]).FirstOrDefault();
+                    if (s.Length > 1)
+                    {
+                        int count = int.Parse(s[1]);
+                        InputUnits.Add(inputUnit, count);
+                    }
+                    else
+                        InputUnits.Add(inputUnit, 1);
+                }
+            }
 
-            Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == inputUnit.UnitTypeId && x.Factor == 1).FirstOrDefault();
-            BaseValue = value * inputUnit.Factor;
             BaseUnits = new Dictionary<Unit, long>();
-            BaseUnits.Add(baseUnit, 1);
+            double baseValue = value;
+            foreach (var InputUnit in InputUnits)
+            {
+                Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == InputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                baseValue = baseValue * Math.Round(Math.Pow(InputUnit.Key.Factor, InputUnit.Value));
+                BaseUnits.Add(baseUnit, InputUnit.Value);
+            }
+            BaseValue = baseValue;
         }
         public Measure(double value, Dictionary<Unit, long> units)
         {
