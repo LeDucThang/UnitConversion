@@ -18,6 +18,7 @@ namespace UnitConverter
 
         public readonly static UnitType LENGTH = new UnitType(1, "Length");
         public readonly static UnitType MASS = new UnitType(2, "Mass");
-        public readonly static UnitType Time = new UnitType(3, "Time");
+        public readonly static UnitType TIME = new UnitType(3, "Time");
+        public readonly static UnitType FORCE = new UnitType(4, "Force");
     }
 }

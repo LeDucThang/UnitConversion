@@ -11,24 +11,27 @@ namespace UnitConverter
     public readonly struct Measure
     {
         private readonly double InputValue;
-        public readonly long InputTenPow;
         public readonly Dictionary<Unit, double> InputUnits;
         public readonly double DisplayValue;
-        public readonly double DisplayTenPow;
         public readonly Dictionary<Unit, double> DisplayUnits;
         public readonly double BaseValue;
-        public readonly double BaseTenPow;
         public readonly Dictionary<Unit, double> BaseUnits;
+        public readonly Dictionary<Unit, double> ExtendUnits;
 
-        public string ToString()
+        public override string ToString()
         {
-            return $"{BaseValue} {UnitsToString()}";
+            return $"{DisplayValue} {DisplayUnitsToString()}";
         }
 
-        private string UnitsToString()
+        public string ToBaseString()
         {
-            var Positive = BaseUnits.Where(x => x.Value > 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
-            var Negative = BaseUnits.Where(x => x.Value < 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
+            return $"{BaseValue} {BaseUnitsToString()}";
+        }
+
+        private string DisplayUnitsToString()
+        {
+            var Positive = DisplayUnits.Where(x => x.Value > 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
+            var Negative = DisplayUnits.Where(x => x.Value < 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
             string positive = string.Join("*", Positive);
             string negative = string.Join("*", Negative);
             if (Negative.Count == 0)
@@ -47,11 +50,20 @@ namespace UnitConverter
             return $"{unit.Key.Code}^{Math.Abs(unit.Value)}";
         }
 
-        public Measure(double value, string units)
+
+        private string BaseUnitsToString()
         {
+            string[] units = BaseUnits.Select(x => $"{x.Key.Code}^{x.Value}").ToArray();
+            return string.Join(".", units);
+        }
+
+
+        public Measure(double value, string displayUnits)
+        {
+            // Chuyển đổi chuỗi string đơn vị thành object
             InputValue = value;
             InputUnits = new Dictionary<Unit, double>();
-            List<string> str_units = units.Split(".").ToList();
+            List<string> str_units = displayUnits.Split(".").ToList();
             foreach (string str in str_units)
             {
                 string[] s = str.Split("^");
@@ -68,37 +80,93 @@ namespace UnitConverter
                 }
             }
 
-            BaseUnits = new Dictionary<Unit, double>();
-            double baseValue = value;
+            // Đưa về dạng chuẩn của các loại đơn vị
+            DisplayUnits = new Dictionary<Unit, double>();
+            double displayValue = value;
             foreach (var InputUnit in InputUnits)
             {
-                Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == InputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
-                baseValue = baseValue * Math.Round(Math.Pow(InputUnit.Key.Factor, InputUnit.Value), 10);
-                BaseUnits.Add(baseUnit, InputUnit.Value);
+                Unit displayUnit = Unit.ListEnum.Where(x => x.UnitTypeId == InputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                displayValue = displayValue * Math.Round(Math.Pow(InputUnit.Key.Factor, InputUnit.Value), 10);
+                DisplayUnits.Add(displayUnit, InputUnit.Value);
+            }
+            DisplayValue = displayValue;
+
+            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
+            BaseUnits = new Dictionary<Unit, double>();
+            double baseValue = displayValue;
+            foreach (var displayUnit in DisplayUnits)
+            {
+                if (displayUnit.Key.UnitTypeId == UnitType.FORCE.Id)
+                {
+                    foreach (var displayBaseUnit in displayUnit.Key.BaseUnits)
+                    {
+                        Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == displayBaseUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                        BuildUnit(BaseUnits, baseUnit, displayBaseUnit.Value);
+                    }
+                    baseValue = baseValue * displayUnit.Key.BaseFactor;
+                }
+                else
+                {
+                    Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == displayUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                    BuildUnit(BaseUnits, baseUnit, displayUnit.Value);
+                }
             }
             BaseValue = baseValue;
         }
+
+       
         public Measure(double value, Dictionary<Unit, double> units)
         {
             InputValue = value;
             InputUnits = units;
 
-            BaseUnits = new Dictionary<Unit, double>();
+            DisplayUnits = new Dictionary<Unit, double>();
+            double displayValue = value;
             foreach (var inputUnit in InputUnits)
             {
                 Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == inputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
-                value = value * Math.Pow(inputUnit.Key.Factor, inputUnit.Value);
-                BaseUnits.Add(baseUnit, inputUnit.Value);
+                displayValue = displayValue * Math.Pow(inputUnit.Key.Factor, inputUnit.Value);
+                DisplayUnits.Add(baseUnit, inputUnit.Value);
             }
-            BaseValue = value;
+            DisplayValue = displayValue;
+
+            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
+            BaseUnits = new Dictionary<Unit, double>();
+            double baseValue = displayValue;
+            foreach (var displayUnit in DisplayUnits)
+            {
+                if (displayUnit.Key.UnitTypeId == UnitType.FORCE.Id)
+                {
+                    foreach (var displayBaseUnit in displayUnit.Key.BaseUnits)
+                    {
+                        Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == displayBaseUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                        BuildUnit(BaseUnits, baseUnit, displayBaseUnit.Value);
+                    }
+                    baseValue = baseValue * displayUnit.Key.BaseFactor;
+                }
+                else
+                {
+                    Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == displayUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                    BuildUnit(BaseUnits, baseUnit, displayUnit.Value);
+                }
+            }
+            BaseValue = baseValue;
+        }
+
+        private void BuildUnit(Dictionary<Unit, double> units, Unit unit, double count)
+        {
+            if (units.ContainsKey(unit))
+                units[unit] += count;
+            else
+                units.Add(unit, count);
         }
 
         public static Measure operator +(Measure a, Measure b)
         {
-            if (a.UnitsToString() == b.UnitsToString())
+            if (a.BaseUnitsToString() == b.BaseUnitsToString())
             {
-                double value = a.BaseValue + b.BaseValue;
-                Dictionary<Unit, double> units = a.BaseUnits;
+                double value = a.DisplayValue + b.DisplayValue;
+                Dictionary<Unit, double> units = a.DisplayUnits;
                 Measure Result = new Measure(value, units);
 
                 return Result;
@@ -111,10 +179,10 @@ namespace UnitConverter
 
         public static Measure operator -(Measure a, Measure b)
         {
-            if (a.UnitsToString() == b.UnitsToString())
+            if (a.BaseUnitsToString() == b.BaseUnitsToString())
             {
-                double value = a.BaseValue - b.BaseValue;
-                Dictionary<Unit, double> units = a.BaseUnits;
+                double value = a.DisplayValue - b.DisplayValue;
+                Dictionary<Unit, double> units = a.DisplayUnits;
                 Measure Result = new Measure(value, units);
 
                 return Result;
@@ -127,16 +195,16 @@ namespace UnitConverter
 
         public static Measure operator *(Measure a, Measure b)
         {
-            double value = a.BaseValue * b.BaseValue;
+            double value = a.DisplayValue * b.DisplayValue;
             Dictionary<Unit, double> units = new Dictionary<Unit, double>();
-            foreach (var unit in a.BaseUnits)
+            foreach (var unit in a.DisplayUnits)
             {
                 if (units.ContainsKey(unit.Key))
                     units[unit.Key] += unit.Value;
                 else
                     units.Add(unit.Key, unit.Value);
             }
-            foreach (var unit in b.BaseUnits)
+            foreach (var unit in b.DisplayUnits)
             {
                 if (units.ContainsKey(unit.Key))
                     units[unit.Key] += unit.Value;
@@ -151,30 +219,30 @@ namespace UnitConverter
 
         public static Measure operator *(Measure a, double b)
         {
-            double value = a.BaseValue * b;
-            Measure Result = new Measure(value, a.BaseUnits);
+            double value = a.DisplayValue * b;
+            Measure Result = new Measure(value, a.DisplayUnits);
             return Result;
 
         }
         public static Measure operator *(double a, Measure b)
         {
-            double value = a * b.BaseValue;
-            Measure Result = new Measure(value, b.BaseUnits);
+            double value = a * b.DisplayValue;
+            Measure Result = new Measure(value, b.DisplayUnits);
             return Result;
 
         }
         public static Measure operator /(Measure a, Measure b)
         {
-            double value = a.BaseValue / b.BaseValue;
+            double value = a.DisplayValue / b.DisplayValue;
             Dictionary<Unit, double> units = new Dictionary<Unit, double>();
-            foreach (var unit in a.BaseUnits)
+            foreach (var unit in a.DisplayUnits)
             {
                 if (units.ContainsKey(unit.Key))
                     units[unit.Key] += unit.Value;
                 else
                     units.Add(unit.Key, unit.Value);
             }
-            foreach (var unit in b.BaseUnits)
+            foreach (var unit in b.DisplayUnits)
             {
                 if (units.ContainsKey(unit.Key))
                     units[unit.Key] -= unit.Value;
@@ -189,9 +257,9 @@ namespace UnitConverter
 
         public static Measure operator /(Measure a, double b)
         {
-            double value = a.BaseValue / b;
+            double value = a.DisplayValue / b;
             Dictionary<Unit, long> units = new Dictionary<Unit, long>();
-            Measure Result = new Measure(value, a.BaseUnits);
+            Measure Result = new Measure(value, a.DisplayUnits);
 
             return Result;
 
