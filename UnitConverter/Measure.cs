@@ -12,13 +12,13 @@ namespace UnitConverter
     {
         private readonly double InputValue;
         public readonly long InputTenPow;
-        public readonly Dictionary<Unit, long> InputUnits;
+        public readonly Dictionary<Unit, double> InputUnits;
         public readonly double DisplayValue;
         public readonly double DisplayTenPow;
-        public readonly Dictionary<Unit, long> DisplayUnits;
+        public readonly Dictionary<Unit, double> DisplayUnits;
         public readonly double BaseValue;
         public readonly double BaseTenPow;
-        public readonly Dictionary<Unit, long> BaseUnits;
+        public readonly Dictionary<Unit, double> BaseUnits;
 
         public string ToString()
         {
@@ -38,26 +38,19 @@ namespace UnitConverter
             return $"{positive}/({negative})";
         }
 
-        private static string UnitToString(KeyValuePair<Unit, long> unit)
+        private static string UnitToString(KeyValuePair<Unit, double> unit)
         {
-            if (unit.Value > 1)
-                return $"{unit.Key.Code}^{unit.Value}";
             if (unit.Value == 1)
                 return unit.Key.Code;
             if (unit.Value == 0)
                 return "";
-            if (unit.Value == -1)
-                return unit.Key.Code;
-            if (unit.Value < -1)
-                return $"{unit.Key.Code}^{0 - unit.Value}";
-            return "";
-
+            return $"{unit.Key.Code}^{Math.Abs(unit.Value)}";
         }
 
         public Measure(double value, string units)
         {
             InputValue = value;
-            InputUnits = new Dictionary<Unit, long>();
+            InputUnits = new Dictionary<Unit, double>();
             List<string> str_units = units.Split(".").ToList();
             foreach (string str in str_units)
             {
@@ -75,7 +68,7 @@ namespace UnitConverter
                 }
             }
 
-            BaseUnits = new Dictionary<Unit, long>();
+            BaseUnits = new Dictionary<Unit, double>();
             double baseValue = value;
             foreach (var InputUnit in InputUnits)
             {
@@ -85,12 +78,12 @@ namespace UnitConverter
             }
             BaseValue = baseValue;
         }
-        public Measure(double value, Dictionary<Unit, long> units)
+        public Measure(double value, Dictionary<Unit, double> units)
         {
             InputValue = value;
             InputUnits = units;
 
-            BaseUnits = new Dictionary<Unit, long>();
+            BaseUnits = new Dictionary<Unit, double>();
             foreach (var inputUnit in InputUnits)
             {
                 Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == inputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
@@ -105,7 +98,7 @@ namespace UnitConverter
             if (a.UnitsToString() == b.UnitsToString())
             {
                 double value = a.BaseValue + b.BaseValue;
-                Dictionary<Unit, long> units = a.BaseUnits;
+                Dictionary<Unit, double> units = a.BaseUnits;
                 Measure Result = new Measure(value, units);
 
                 return Result;
@@ -121,7 +114,7 @@ namespace UnitConverter
             if (a.UnitsToString() == b.UnitsToString())
             {
                 double value = a.BaseValue - b.BaseValue;
-                Dictionary<Unit, long> units = a.BaseUnits;
+                Dictionary<Unit, double> units = a.BaseUnits;
                 Measure Result = new Measure(value, units);
 
                 return Result;
@@ -135,7 +128,7 @@ namespace UnitConverter
         public static Measure operator *(Measure a, Measure b)
         {
             double value = a.BaseValue * b.BaseValue;
-            Dictionary<Unit, long> units = new Dictionary<Unit, long>();
+            Dictionary<Unit, double> units = new Dictionary<Unit, double>();
             foreach (var unit in a.BaseUnits)
             {
                 if (units.ContainsKey(unit.Key))
@@ -156,10 +149,24 @@ namespace UnitConverter
 
         }
 
+        public static Measure operator *(Measure a, double b)
+        {
+            double value = a.BaseValue * b;
+            Measure Result = new Measure(value, a.BaseUnits);
+            return Result;
+
+        }
+        public static Measure operator *(double a, Measure b)
+        {
+            double value = a * b.BaseValue;
+            Measure Result = new Measure(value, b.BaseUnits);
+            return Result;
+
+        }
         public static Measure operator /(Measure a, Measure b)
         {
             double value = a.BaseValue / b.BaseValue;
-            Dictionary<Unit, long> units = new Dictionary<Unit, long>();
+            Dictionary<Unit, double> units = new Dictionary<Unit, double>();
             foreach (var unit in a.BaseUnits)
             {
                 if (units.ContainsKey(unit.Key))
@@ -175,6 +182,16 @@ namespace UnitConverter
                     units.Add(unit.Key, 0 - unit.Value);
             }
             Measure Result = new Measure(value, units);
+
+            return Result;
+
+        }
+
+        public static Measure operator /(Measure a, double b)
+        {
+            double value = a.BaseValue / b;
+            Dictionary<Unit, long> units = new Dictionary<Unit, long>();
+            Measure Result = new Measure(value, a.BaseUnits);
 
             return Result;
 
