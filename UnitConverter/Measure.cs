@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -30,15 +31,44 @@ namespace UnitConverter
 
         private string DisplayUnitsToString()
         {
-            var Positive = DisplayUnits.Where(x => x.Value > 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
-            var Negative = DisplayUnits.Where(x => x.Value < 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
-            string positive = string.Join("*", Positive);
-            string negative = string.Join("*", Negative);
-            if (Negative.Count == 0)
-                return positive;
-            if (Positive.Count == 0)
-                return $"1/({negative})";
-            return $"{positive}/({negative})";
+            var ExtendPositive = ExtendUnits.Where(x => x.Value > 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
+            var ExtendNegative = ExtendUnits.Where(x => x.Value < 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
+            string extendPositive = string.Join("*", ExtendPositive);
+            string extendNegative = string.Join("*", ExtendNegative);
+            var DisplayPositive = DisplayUnits.Where(x => x.Value > 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
+            var DisplayNegative = DisplayUnits.Where(x => x.Value < 0).OrderBy(x => x.Key.Id).Select(x => UnitToString(x)).ToList();
+            string displayPositive = string.Join("*", DisplayPositive);
+            string displayNegative = string.Join("*", DisplayNegative);
+
+            string extend = string.Empty;
+            if (ExtendPositive.Count == 0 && ExtendNegative.Count == 0)
+            {
+
+            }
+            else
+            {
+                if (ExtendNegative.Count == 0)
+                    extend = extendPositive;
+                else if (ExtendPositive.Count == 0)
+                    extend = $"1/({extendNegative})";
+                else
+                    extend = $"{extendPositive}/({extendNegative})";
+            }
+
+            string display = string.Empty;
+            if (DisplayNegative.Count == 0)
+                display = displayPositive;
+            else if (DisplayPositive.Count == 0)
+                display = $"1/({displayNegative})";
+            else
+                display = $"{displayPositive}/({displayNegative})";
+
+            if (extend == string.Empty)
+                return display;
+            else if (display == string.Empty)
+                return extend;
+            else
+                return $"{extend}.{display}";
         }
 
         private static string UnitToString(KeyValuePair<Unit, double> unit)
@@ -53,10 +83,9 @@ namespace UnitConverter
 
         private string BaseUnitsToString()
         {
-            string[] units = BaseUnits.Select(x => $"{x.Key.Code}^{x.Value}").ToArray();
+            string[] units = BaseUnits.Where(x => x.Value != 0).Select(x => $"{x.Key.Code}^{x.Value}").ToArray();
             return string.Join(".", units);
         }
-
 
         public Measure(double value, string displayUnits)
         {
@@ -83,56 +112,49 @@ namespace UnitConverter
             // Đưa về dạng chuẩn của các loại đơn vị
             DisplayUnits = new Dictionary<Unit, double>();
             double displayValue = value;
-            foreach (var InputUnit in InputUnits)
-            {
-                Unit displayUnit = Unit.ListEnum.Where(x => x.UnitTypeId == InputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
-                displayValue = displayValue * Math.Round(Math.Pow(InputUnit.Key.Factor, InputUnit.Value), 10);
-                DisplayUnits.Add(displayUnit, InputUnit.Value);
-            }
+            BuildDisplayUnits(InputUnits, DisplayUnits, ref displayValue);
             DisplayValue = displayValue;
 
             // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
             BaseUnits = new Dictionary<Unit, double>();
             double baseValue = displayValue;
-            foreach (var displayUnit in DisplayUnits)
-            {
-                if (displayUnit.Key.UnitTypeId == UnitType.FORCE.Id)
-                {
-                    foreach (var displayBaseUnit in displayUnit.Key.BaseUnits)
-                    {
-                        Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == displayBaseUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
-                        BuildUnit(BaseUnits, baseUnit, displayBaseUnit.Value);
-                    }
-                    baseValue = baseValue * displayUnit.Key.BaseFactor;
-                }
-                else
-                {
-                    Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == displayUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
-                    BuildUnit(BaseUnits, baseUnit, displayUnit.Value);
-                }
-            }
+            BuildBaseUnits(DisplayUnits, BaseUnits, ref baseValue);
             BaseValue = baseValue;
+            ExtendUnits = new Dictionary<Unit, double>();
         }
 
-       
         public Measure(double value, Dictionary<Unit, double> units)
         {
             InputValue = value;
             InputUnits = units;
 
+
             DisplayUnits = new Dictionary<Unit, double>();
             double displayValue = value;
+            BuildDisplayUnits(InputUnits, DisplayUnits, ref displayValue);
+            DisplayValue = displayValue;
+
+            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
+            BaseUnits = new Dictionary<Unit, double>();
+            double baseValue = displayValue;
+            BuildBaseUnits(DisplayUnits, BaseUnits, ref baseValue);
+            BaseValue = baseValue;
+
+            ExtendUnits = new Dictionary<Unit, double>();
+        }
+
+        private void BuildDisplayUnits(Dictionary<Unit, double> InputUnits, Dictionary<Unit, double> DisplayUnits, ref double displayValue)
+        {
             foreach (var inputUnit in InputUnits)
             {
                 Unit baseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == inputUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
                 displayValue = displayValue * Math.Pow(inputUnit.Key.Factor, inputUnit.Value);
                 DisplayUnits.Add(baseUnit, inputUnit.Value);
             }
-            DisplayValue = displayValue;
+        }
 
-            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
-            BaseUnits = new Dictionary<Unit, double>();
-            double baseValue = displayValue;
+        private void BuildBaseUnits(Dictionary<Unit, double> DisplayUnits, Dictionary<Unit, double> BaseUnits, ref double baseValue)
+        {
             foreach (var displayUnit in DisplayUnits)
             {
                 if (displayUnit.Key.UnitTypeId == UnitType.FORCE.Id)
@@ -150,7 +172,66 @@ namespace UnitConverter
                     BuildUnit(BaseUnits, baseUnit, displayUnit.Value);
                 }
             }
+        }
+
+        public Measure(double value, Dictionary<Unit, double> units, string extUnit)
+        {
+            InputValue = value;
+            InputUnits = units;
+
+            // chuyển đổi từ chuỗi ext thành Dictionary.
+            ExtendUnits = new Dictionary<Unit, double>();
+            List<string> str_units = extUnit.Split(".").ToList();
+            foreach (string str in str_units)
+            {
+                string[] s = str.Split("^");
+                if (s.Length > 0)
+                {
+                    Unit extendUnit = Unit.ListEnum.Where(x => x.Code == s[0]).FirstOrDefault();
+                    if (s.Length > 1)
+                    {
+                        int count = int.Parse(s[1]);
+                        ExtendUnits.Add(extendUnit, count);
+                    }
+                    else
+                        ExtendUnits.Add(extendUnit, 1);
+                }
+            }
+
+            // Đưa về dạng chuẩn của các loại đơn vị
+            DisplayUnits = new Dictionary<Unit, double>();
+            double displayValue = value;
+            BuildDisplayUnits(InputUnits, DisplayUnits, ref displayValue);
+            DisplayValue = displayValue;
+
+            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
+            BaseUnits = new Dictionary<Unit, double>();
+            double baseValue = displayValue;
+            BuildBaseUnits(DisplayUnits, BaseUnits, ref baseValue);
             BaseValue = baseValue;
+
+            // Khởi tạo lại DisplayUnit để tạo lại DisplayUnit mới dựa trên BaseUnits và ExtendUnits
+            DisplayUnits = new Dictionary<Unit, double>();
+            // Khởi tạo standardUnits từ ExtendUnits. Chuyển đổi về 3 loại Length,Mass,Time cơ bản
+            Dictionary<Unit, double> standardUnits = new Dictionary<Unit, double>();
+            double standardDisplayValue = value;
+            foreach (var extendUnit in ExtendUnits)
+            {
+                standardDisplayValue = standardDisplayValue / extendUnit.Key.Factor;
+                Unit extendBaseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == extendUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+            }
+
+            // Xác định DisplayUnit mới và tính lại DisplayValue
+            displayValue = standardDisplayValue;
+            foreach (var displayUnit in DisplayUnits)
+            {
+                DisplayUnits.Add(displayUnit.Key, displayUnit.Value);
+                if (standardUnits.ContainsKey(displayUnit.Key))
+                {
+                    DisplayUnits[displayUnit.Key] = DisplayUnits[displayUnit.Key] - standardUnits[displayUnit.Key];
+                }
+            }
+            DisplayValue = displayValue;
         }
 
         private void BuildUnit(Dictionary<Unit, double> units, Unit unit, double count)
@@ -263,6 +344,21 @@ namespace UnitConverter
 
             return Result;
 
+        }
+
+        public static Measure operator ^(Measure a, double b)
+        {
+            double value = Math.Pow(a.BaseValue, b);
+            Dictionary<Unit, double> units = new Dictionary<Unit, double>();
+            foreach (var unit in a.BaseUnits)
+            {
+                if (units.ContainsKey(unit.Key))
+                    units[unit.Key] += unit.Value * b;
+                else
+                    units.Add(unit.Key, unit.Value * b);
+            }
+            Measure result = new Measure(value, units);
+            return result;
         }
     }
 }
