@@ -36,15 +36,15 @@ namespace UnitConverter
             Measure edge = new Measure(10, "m");
             Measure area = edge * edge;
             Measure moment = newton * length;
-            //Measure displayMoment = new Measure(moment, "kN");
+            Measure displayMoment = new Measure(moment, "kN");
             Measure pressure = newton / area;
             Measure displayPressure = new Measure(pressure, "MPa");
-            Console.WriteLine(moment.ToString());
-            Console.WriteLine(moment.ToBaseString());
-            //Console.WriteLine(displayMoment.ToString());
-            //Console.WriteLine(displayMoment.ToBaseString());
-            Console.WriteLine(displayPressure.ToString());
-            Console.WriteLine(displayPressure.ToBaseString());
+            Console.WriteLine("moment in display: " + moment.ToString());
+            Console.WriteLine("moment in base unit: " + moment.ToBaseString());
+            Console.WriteLine("moment in kN: " + displayMoment.ToString());
+            Console.WriteLine("moment in kN: " + displayMoment.ToBaseString());
+            Console.WriteLine("pressure= newton/area: " + displayPressure.ToString());
+            Console.WriteLine("pressure = newton/area: " + displayPressure.ToBaseString());
 
         }
     }
