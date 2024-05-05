@@ -27,7 +27,7 @@ namespace UnitConverter
             Measure peri = (x + y + z) / 2;
             Measure S = MathExt.Sqrt(peri * (peri - x) * (peri - y) * (peri - z));
             Measure S2 = (peri * (peri - x) * (peri - y) * (peri - z)) ^ 0.5;
-            Console.WriteLine(p.ToString());
+            Console.WriteLine(peri.ToString());
             Console.WriteLine(S.ToString());
             Console.WriteLine(S2.ToString());
 
