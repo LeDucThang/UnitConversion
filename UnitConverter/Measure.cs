@@ -174,10 +174,21 @@ namespace UnitConverter
             }
         }
 
+        public Measure(Measure measure, string extUnit) : this(measure.BaseValue, measure.BaseUnits, extUnit)
+        {
+
+        }
+
         public Measure(double value, Dictionary<Unit, double> units, string extUnit)
         {
             InputValue = value;
             InputUnits = units;
+
+            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
+            BaseUnits = new Dictionary<Unit, double>();
+            double baseValue = value;
+            BuildBaseUnits(InputUnits, BaseUnits, ref baseValue);
+            BaseValue = baseValue;
 
             // chuyển đổi từ chuỗi ext thành Dictionary.
             ExtendUnits = new Dictionary<Unit, double>();
@@ -198,19 +209,16 @@ namespace UnitConverter
                 }
             }
 
-            // Đưa về dạng chuẩn của các loại đơn vị
-            DisplayUnits = new Dictionary<Unit, double>();
-            double displayValue = value;
-            BuildDisplayUnits(InputUnits, DisplayUnits, ref displayValue);
-            DisplayValue = displayValue;
+            //// Đưa về dạng chuẩn của các loại đơn vị
+            //DisplayUnits = new Dictionary<Unit, double>();
+            //double displayValue = value;
+            //BuildDisplayUnits(InputUnits, BaseUnits, ref displayValue);
+            //DisplayValue = displayValue;
 
-            // Đưa về dạng chuẩn chỉ bao gồm Length, Mass, Time để hỗ trợ tính toán
-            BaseUnits = new Dictionary<Unit, double>();
-            double baseValue = displayValue;
-            BuildBaseUnits(DisplayUnits, BaseUnits, ref baseValue);
-            BaseValue = baseValue;
+
 
             // Khởi tạo lại DisplayUnit để tạo lại DisplayUnit mới dựa trên BaseUnits và ExtendUnits
+            double displayValue = value;
             DisplayUnits = new Dictionary<Unit, double>();
             // Khởi tạo standardUnits từ ExtendUnits. Chuyển đổi về 3 loại Length,Mass,Time cơ bản
             Dictionary<Unit, double> standardUnits = new Dictionary<Unit, double>();
@@ -219,16 +227,24 @@ namespace UnitConverter
             {
                 standardDisplayValue = standardDisplayValue / extendUnit.Key.Factor;
                 Unit extendBaseUnit = Unit.ListEnum.Where(x => x.UnitTypeId == extendUnit.Key.UnitTypeId && x.Factor == 1).FirstOrDefault();
+                standardDisplayValue = standardDisplayValue / extendBaseUnit.BaseFactor;
+                if (extendBaseUnit.BaseUnits != null)
+                {
+                    foreach(var baseUnit in  extendBaseUnit.BaseUnits)
+                    {
+                        standardUnits.Add(baseUnit.Key, baseUnit.Value);
+                    }
+                }    
             }
 
             // Xác định DisplayUnit mới và tính lại DisplayValue
             displayValue = standardDisplayValue;
-            foreach (var displayUnit in DisplayUnits)
+            foreach (var baseUnit in BaseUnits)
             {
-                DisplayUnits.Add(displayUnit.Key, displayUnit.Value);
-                if (standardUnits.ContainsKey(displayUnit.Key))
+                DisplayUnits.Add(baseUnit.Key, baseUnit.Value);
+                if (standardUnits.ContainsKey(baseUnit.Key))
                 {
-                    DisplayUnits[displayUnit.Key] = DisplayUnits[displayUnit.Key] - standardUnits[displayUnit.Key];
+                    DisplayUnits[baseUnit.Key] = DisplayUnits[baseUnit.Key] - standardUnits[baseUnit.Key];
                 }
             }
             DisplayValue = displayValue;
